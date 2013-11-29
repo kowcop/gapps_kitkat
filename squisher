@@ -1,0 +1,333 @@
+#!/bin/bash
+#
+# Squish a CM otapackage for distribution
+#
+# cyanogen
+# AOKP
+
+. $ANDROID_BUILD_TOP/vendor/gapps/colors
+OUT_TARGET_HOST=`uname -a | grep Darwin`
+if [ -z "$OUT_TARGET_HOST" ]
+then
+   OUT_TARGET_HOST=linux-x86
+   MD5=md5sum
+   XARGS="xargs --max-args=1 --max-procs `grep 'processor' /proc/cpuinfo|wc -l`"
+   SED=sed
+else
+   OUT_TARGET_HOST=darwin-x86
+   MD5="md5 -r "
+   XARGS="xargs -n 1 -P `sysctl hw.ncpu | awk '{print $2}'`"
+   SED=gsed
+fi
+
+if [ -z "$OUT" -o ! -d "$OUT" ]; then
+	echo -e "ERROR: $0 only works with a full build environment. $OUT should exist."
+	exit 1
+fi
+
+OTAPACKAGE=`ls -t $OUT/*.zip | head -1`
+
+QUIET=-q
+DELETE_BINS="applypatch applypatch_static check_prereq recovery updater"
+
+
+REPACK=$OUT/repack.d
+echo -e $CL_CYN"Sanitizing environment..."$CL_RST
+rm -rf $REPACK
+mkdir -p $REPACK
+echo -e
+
+
+# Unpack the otapackage and opticharge all apks
+mkdir $REPACK/ota
+(
+cd $REPACK/ota
+echo -e $CL_CYN"Unpacking $OTAPACKAGE..."$CL_RST
+unzip $QUIET $OTAPACKAGE
+echo -e
+)
+
+
+# --------------------
+# start kow's cleanup
+# --------------------
+KOWINC=$ANDROID_BUILD_TOP/vendor/gapps
+
+echo -e $CL_YLW".... kow cleaning some stuff ......"
+# Delete Unecessary Apps
+rm -f $REPACK/ota/system/priv-app/Launcher2.apk
+rm -f $REPACK/ota/system/priv-app/MusicFX.apk
+rm -f $REPACK/ota/system/priv-app/VpnDialogs.apk
+rm -f $REPACK/ota/system/app/Apollo.apk
+rm -f $REPACK/ota/system/app/AppWidgetPicker.apk
+rm -f $REPACK/ota/system/app/BasicDreams.apk
+rm -f $REPACK/ota/system/app/Books.apk
+rm -f $REPACK/ota/system/app/Calendar.apk
+rm -f $REPACK/ota/system/app/CalendarGoogle.apk
+rm -f $REPACK/ota/system/app/Camera2.apk
+rm -f $REPACK/ota/system/app/CertInstaller.apk
+rm -f $REPACK/ota/system/app/Chrome.apk
+rm -f $REPACK/ota/system/app/ChromeBookmarksSyncAdapter.apk
+rm -f $REPACK/ota/system/app/CloudPrint2.apk
+rm -f $REPACK/ota/system/app/CMFileManager.apk
+rm -f $REPACK/ota/system/app/CMFileManagerThemes.apk
+rm -f $REPACK/ota/system/app/CMUpdater.apk
+rm -f $REPACK/ota/system/app/CMWallpapers.apk
+rm -f $REPACK/ota/system/app/Currents.apk
+rm -f $REPACK/ota/system/app/Development.apk
+rm -f $REPACK/ota/system/app/DrmProvider.apk
+rm -f $REPACK/ota/system/app/DSPManager.apk
+rm -f $REPACK/ota/system/app/Email.apk
+rm -f $REPACK/ota/system/app/Email2.apk
+rm -f $REPACK/ota/system/app/EmailGoogle.apk
+rm -f $REPACK/ota/system/app/Exchange.apk
+rm -f $REPACK/ota/system/app/Exchange2.apk
+rm -f $REPACK/ota/system/app/Exchange2Google.apk
+rm -f $REPACK/ota/system/app/FaceLock.apk
+rm -f $REPACK/ota/system/app/Focal.apk
+rm -f $REPACK/ota/system/app/Galaxy4.apk
+rm -f $REPACK/ota/system/app/Gallery2.apk
+rm -f $REPACK/ota/system/app/GalleryGoogle.apk
+rm -f $REPACK/ota/system/app/GenieWidget.apk
+rm -f $REPACK/ota/system/app/Gmail.apk
+rm -f $REPACK/ota/system/app/Gmail2.apk
+rm -f $REPACK/ota/system/app/GoogleEars.apk
+rm -f $REPACK/ota/system/app/GoogleEarth.apk
+rm -f $REPACK/ota/system/app/GoogleHindiIME.apk
+rm -f $REPACK/ota/system/app/GooglePinyinIME.apk
+rm -f $REPACK/ota/system/app/GoogleTTS.apk
+rm -f $REPACK/ota/system/app/GooManager.apk
+rm -f $REPACK/ota/system/app/GooUpdater.apk
+rm -f $REPACK/ota/system/app/HoloSpiralWallpaper.apk
+rm -f $REPACK/ota/system/app/HTMLViewer.apk
+rm -f $REPACK/ota/system/app/HPPrintPlugin.apk
+rm -f $REPACK/ota/system/app/iWnnIME.apk
+rm -f $REPACK/ota/system/app/iWnnIME_Kbd_White.apk
+rm -f $REPACK/ota/system/app/Keep.apk
+rm -f $REPACK/ota/system/app/KoreanIME.apk
+rm -f $REPACK/ota/system/app/LatinIME.apk
+rm -f $REPACK/ota/system/app/LatinIMEGoogle.apk
+rm -f $REPACK/ota/system/app/LatinImeGoogle.apk
+rm -f $REPACK/ota/system/app/Launcher2.apk
+rm -f $REPACK/ota/system/app/LiveWallpapers.apk
+rm -f $REPACK/ota/system/app/LiveWallpapersPicker.apk
+rm -f $REPACK/ota/system/app/LockClock.apk
+rm -f $REPACK/ota/system/app/Magazines.apk
+rm -f $REPACK/ota/system/app/MagicSmokeWallpapers.apk
+rm -f $REPACK/ota/system/app/Maps.apk
+rm -f $REPACK/ota/system/app/Microbes.apk
+rm -f $REPACK/ota/system/app/Music.apk
+rm -f $REPACK/ota/system/app/Music2.apk
+rm -f $REPACK/ota/system/app/MusicFX.apk
+rm -f $REPACK/ota/system/app/NoiseField.apk
+rm -f $REPACK/ota/system/app/NovaLauncher.apk
+rm -f $REPACK/ota/system/app/OccamQuickOffice.apk
+rm -f $REPACK/ota/system/app/OpenWnn.apk
+rm -f $REPACK/ota/system/app/ParanoidWallpapers.apk
+rm -f $REPACK/ota/system/app/PhaseBeam.apk
+rm -f $REPACK/ota/system/app/PhotoTable.apk
+rm -f $REPACK/ota/system/app/PicoTts.apk
+rm -f $REPACK/ota/system/app/PinyinIME.apk
+rm -f $REPACK/ota/system/app/PlayGames.apk
+rm -f $REPACK/ota/system/app/PlusOne.apk
+rm -f $REPACK/ota/system/app/PrebuiltGmsCore.apk
+rm -f $REPACK/ota/system/app/PrintSpooler.apk
+rm -f $REPACK/ota/system/app/QuickOffice.apk
+rm -f $REPACK/ota/system/app/QuickSearchBox.apk
+rm -f $REPACK/ota/system/app/SetupWizard.apk
+rm -f $REPACK/ota/system/app/SlimFileManager.apk
+rm -f $REPACK/ota/system/app/SlimIRC.apk
+rm -f $REPACK/ota/system/app/SnapBlack.apk
+rm -f $REPACK/ota/system/app/SoundRecorder.apk
+rm -f $REPACK/ota/system/app/SpareParts.apk
+rm -f $REPACK/ota/system/app/Stk.apk
+rm -f $REPACK/ota/system/app/Street.apk
+rm -f $REPACK/ota/system/app/talkback.apk
+rm -f $REPACK/ota/system/app/ThemeChooser.apk
+rm -f $REPACK/ota/system/app/ThemeManager.apk
+rm -f $REPACK/ota/system/app/Trebuchet.apk
+rm -f $REPACK/ota/system/app/UnicornPorn.apk
+rm -f $REPACK/ota/system/app/VideoEditor.apk
+rm -f $REPACK/ota/system/app/Videos.apk
+rm -f $REPACK/ota/system/app/VisualizationWallpapers.apk
+rm -f $REPACK/ota/system/app/VoiceDialer.apk
+rm -f $REPACK/ota/system/app/VpnDialogs.apk
+rm -f $REPACK/ota/system/app/webaudiores.apk
+rm -f $REPACK/ota/system/app/XposedDPI.apk
+rm -f $REPACK/ota/system/app/XposedInstaller.apk
+rm -f $REPACK/ota/system/app/ZipInstaller.apk
+
+# Removing Unnecessary libs
+rm -f $REPACK/ota/system/lib/libchromeview.so
+rm -f $REPACK/ota/system/lib/libearthmobile.so
+rm -f $REPACK/ota/system/lib/libgtalk_jni.so
+rm -f $REPACK/ota/system/lib/libgtalk_stabilize.so
+rm -f $REPACK/ota/system/lib/libttspico.so
+rm -f $REPACK/ota/system/lib/libvideoeditorplayer.so
+rm -f $REPACK/ota/system/lib/libvideoeditor_core.so
+rm -f $REPACK/ota/system/lib/libvideoeditor_jni.so
+rm -f $REPACK/ota/system/lib/libvideoeditor_osal.so
+rm -f $REPACK/ota/system/lib/libvideoeditor_videofilters.so
+rm -f $REPACK/ota/system/lib/libWnnEngDic.so
+rm -f $REPACK/ota/system/lib/libWnnJpnDic.so
+
+# Removing Unnecessary TTS languages
+rm -rf $REPACK/ota/system/tts
+
+# Removing Other Stuff
+rm -rf $REPACK/ota/system/media/video
+rm -rf $REPACK/ota/system/media/audio/alarms
+rm -rf $REPACK/ota/system/media/audio/notifications
+rm -rf $REPACK/ota/system/media/audio/ringtones
+rm -f $REPACK/ota/system/media/ui/camera-click.ogg
+rm -f $REPACK/ota/system/media/ui/camera-focus.ogg
+rm -f $REPACK/ota/system/media/ui/VideoRecord.ogg
+rm -f $REPACK/ota/system/media/bootanimation.zip
+rm -f $REPACK/ota/system/media/bootanimation-alt.zip
+
+# Removing Fonts
+rm -f $REPACK/ota/system/fonts/AnjaliNewLipi-light.ttf
+rm -f $REPACK/ota/system/fonts/DroidNaskh-Regular-SystemUI.ttf
+rm -f $REPACK/ota/system/fonts/DroidNaskh-Regular.ttf
+rm -f $REPACK/ota/system/fonts/DroidNaskhUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/DroidSansArmenian.ttf
+rm -f $REPACK/ota/system/fonts/DroidSansDevanagari-Regular.ttf
+rm -f $REPACK/ota/system/fonts/DroidSansEthiopic-Regular.ttf
+rm -f $REPACK/ota/system/fonts/DroidSansHebrew-Bold.ttf
+rm -f $REPACK/ota/system/fonts/DroidSansHebrew-Regular.ttf
+rm -f $REPACK/ota/system/fonts/DroidSansTamil-Bold.ttf
+rm -f $REPACK/ota/system/fonts/DroidSansTamil-Regular.ttf
+rm -f $REPACK/ota/system/fonts/DroidSansThai.ttf
+rm -f $REPACK/ota/system/fonts/Lohit-Bengali.ttf
+rm -f $REPACK/ota/system/fonts/Lohit-Kannada.ttf
+rm -f $REPACK/ota/system/fonts/Lohit-Telugu.ttf
+rm -f $REPACK/ota/system/fonts/MTLmr3m.ttf
+rm -f $REPACK/ota/system/fonts/NanumGothic.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansBengali-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansBengali-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansBengaliUI-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansBengaliUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansDevanagari-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansDevanagari-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansDevanagariUI-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansDevanagariUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKannada-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKannada-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKannadaUI-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKannadaUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKhmer-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKhmer-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKhmerUI-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKhmerUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansLao-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansLao-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansLaoUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansLaoUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKannada-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKannada-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKannadaUI-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansKannadaUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansMalayalam-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansMalayalam-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansMalayalamUI-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansMalayalamUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansTamil-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansTamil-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansTamilUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansTamilUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansTelugu-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansTelugu-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansTeluguUI-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansTeluguUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansThai-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansThai-Regular.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansThaiUI-Bold.ttf
+rm -f $REPACK/ota/system/fonts/NotoSansThaiUI-Regular.ttf
+rm -f $REPACK/ota/system/fonts/Padauk-book.ttf
+rm -f $REPACK/ota/system/fonts/Padauk-bookbold.ttf
+
+echo -e $CL_YLW".... kow adding some stuff ......"
+# make destination directories
+mkdir -p $REPACK/ota/system/addon.d
+mkdir -p $REPACK/ota/system/bin
+mkdir -p $REPACK/ota/system/etc/preferred-apps
+mkdir -p $REPACK/ota/system/media/audio/alarms
+mkdir -p $REPACK/ota/system/media/audio/notifications
+mkdir -p $REPACK/ota/system/media/audio/ringtones
+mkdir -p $REPACK/ota/system/usr
+mkdir -p $REPACK/ota/system/xbin
+mkdir -p $REPACK/ota/system/priv-app
+
+# copy directories
+cp -R $KOWINC/prebuilt/addon.d $REPACK/ota/system
+cp -R $KOWINC/prebuilt/app $REPACK/ota/system
+cp -R $KOWINC/prebuilt/priv-app $REPACK/ota/system
+cp -R $KOWINC/prebuilt/usr $REPACK/ota/system
+cp -R $KOWINC/prebuilt/etc $REPACK/ota/system
+cp -R $KOWINC/prebuilt/etc/permissions $REPACK/ota/system/etc
+cp -R $KOWINC/prebuilt/etc/preferred-apps $REPACK/ota/system/etc
+cp -R $KOWINC/prebuilt/framework $REPACK/ota/system
+cp -R $KOWINC/prebuilt/lib $REPACK/ota/system
+cp -R $KOWINC/prebuilt/media/audio/alarms $REPACK/ota/system/media/audio
+cp -R $KOWINC/prebuilt/media/audio/notifications $REPACK/ota/system/media/audio
+cp -R $KOWINC/prebuilt/media/audio/ringtones $REPACK/ota/system/media/audio
+
+# copy kernel
+# cp $KOWINC/boot.img $REPACK/ota
+
+echo -e $CL_YLW".... fix build prop ......"
+$SED -i \
+    	-e 's/ro.sf.lcd_density=320/ro.sf.lcd_density=268/g' \
+    	-e 's/ro.com.android.dateformat=MM-dd-yyyy/ro.com.android.dateformat=dd-MM-yyyy/g' \
+	-e 's/ro.config.ringtone=.*.ogg/ro.config.ringtone=Pyxis.ogg/g' \
+	-e 's/ro.config.notification_sound=.*.ogg/ro.config.notification_sound=CyanPing.ogg/g' \
+	-e 's/ro.config.alarm_alert=.*.ogg/ro.config.alarm_alert=Cesium.ogg/g' \
+	-e '$ a ro.ril.hsxpa=2' \
+	-e '$ a ro.ril.gprsclass=12' \
+	-e '$ a ro.ril.hsdpa.category=24' \
+	-e '$ a ro.ril.hsupa.category=7' \
+	$REPACK/ota/system/build.prop
+	
+# --------------------
+# end kow's cleanup
+# --------------------
+
+OUTFILE=$OUT/kowAOSP_mako-$(date +"%Y%m%d").zip
+
+# Delete unnecessary binaries
+( cd $REPACK/ota/system/bin; echo -e $DELETE_BINS | xargs rm -f; )
+
+# Delete leftover wireless driver
+# rm -rf $REPACK/ota/system/lib/modules/*/kernel/drivers/net
+
+# No need for recovery
+rm -rf $REPACK/ota/recovery
+
+# Strip modules
+[ -d $REPACK/ota/system/lib/modules ] && \
+	find $REPACK/ota/system/lib/modules -name "*.ko" -print0 | xargs -0 arm-eabi-strip --strip-unneeded
+
+# Pack it up and sign
+echo -e $CL_CYN"Zipping package..."$CL_RST
+( cd $REPACK/ota; zip $QUIET -r $REPACK/update.zip . )
+echo -e
+echo -e $CL_CYN"Signing package..."$CL_RST
+SECURITYDIR=$ANDROID_BUILD_TOP/build/target/product/security
+java -Xmx1024m \
+	-jar $ANDROID_BUILD_TOP/out/host/$OUT_TARGET_HOST/framework/signapk.jar \
+	-w $SECURITYDIR/testkey.x509.pem $SECURITYDIR/testkey.pk8 \
+	$REPACK/update.zip $OUTFILE
+echo -e
+echo -e $CL_CYN"Cleaning up..."$CL_RST
+rm -rf $REPACK
+echo -e
+
+ZIPSIZE=`ls -lah $OUTFILE | awk '{ print $5}' `
+
+echo -e $CL_CYN"===========-Package complete-==========="$CL_RST
+echo -e $CL_CYN"zip:"$CL_MAG" $OUTFILE"$CL_RST
+echo -e $CL_CYN"size:"$CL_MAG" $ZIPSIZE"$CL_RST
+echo -e $CL_CYN"========================================"$CL_RST
+echo -e
+
+exit 0
